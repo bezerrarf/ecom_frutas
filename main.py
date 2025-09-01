@@ -17,7 +17,7 @@ def limpar_tela():
 
 def pausar_tela(mensagem="Pressione Enter para continuar..."):
     """Pausa a execução e aguarda o usuário pressionar Enter."""
-    input(f"\n{mensagem} ")
+    input(f"\n{mensagem}")
 
 def exibir_cabecalho(titulo):
     """Exibe um cabeçalho formatado e centralizado."""
@@ -36,7 +36,7 @@ def obter_saudacao():
 # --- FUNÇÕES DE GERENCIAMENTO DE DADOS (I/O) ---
 
 def carregar_dados_csv(caminho_arquivo, conversoes):
-    """Carrega dados de um arquivo CSV, aplicando conversões de tipo.  """
+    #Carrega dados de um arquivo CSV, aplicando conversões de tipo.   
     try:
         with open(caminho_arquivo, mode='r', encoding='utf-8') as f:
             leitor = csv.DictReader(f)
@@ -64,14 +64,51 @@ def logar_acao(mensagem):
         f.write(f"[{timestamp}] {mensagem}\n")
 
 def gerar_nota_fiscal(carrinho, total_compra):
-    """Gera um arquivo de texto 'nota.txt' com os detalhes da compra.  """
-    print("Funcionalidades ainda ser implementado aqui.")
+    """Gera um arquivo de texto 'nota.txt' com os detalhes da compra.
+
+    Args:
+        carrinho (list): A lista de itens no carrinho do cliente.
+        total_compra (float): O valor total da compra.
+    """
+    with open(ARQUIVO_NOTA, 'w', encoding='utf-8') as nota:
+        nota.write("=" * 45 + "\n")
+        nota.write("      NOTA FISCAL - FRUTARIA BDLTDA\n")
+        nota.write("=" * 45 + "\n")
+        for item in carrinho:
+            preco_unitario = float(item['preco_venda'])
+            subtotal = item['quantidade'] * preco_unitario
+            linha = f"{item['nome']} ({item['quantidade']}x R${preco_unitario:.2f})".ljust(33)
+            subtotal_str = f"R${subtotal:.2f}".rjust(11)
+            nota.write(linha + subtotal_str + "\n")
+        nota.write("-" * 45 + "\n")
+        nota.write(f"TOTAL DA COMPRA:".ljust(33) + f"R${total_compra:.2f}".rjust(11) + "\n")
+        nota.write("=" * 45 + "\n")
+    print(f"\nNota fiscal gerada com sucesso no arquivo '{ARQUIVO_NOTA}'!")
 
 # --- LÓGICA DO CLIENTE ---
 
 def _cliente_adicionar_item(carrinho, produtos):
     """Função auxiliar para adicionar um item ao carrinho."""
-    print("Funcionalidades ainda ser implementado aqui.")
+    try:
+        id_prod = int(input("Digite o ID do produto: "))
+        produto_em_estoque = next((p for p in produtos if p['id'] == id_prod and p['quantidade_estoque'] > 0), None)
+        
+        if not produto_em_estoque:
+            print("Erro: Produto não encontrado ou sem estoque.")
+            return carrinho
+
+        qtd = int(input(f"Quantidade de '{produto_em_estoque['nome']}': "))
+        if 0 < qtd <= produto_em_estoque['quantidade_estoque']:
+            item_no_carrinho = next((item for item in carrinho if item['id'] == id_prod), None)
+            if item_no_carrinho:
+                item_no_carrinho['quantidade'] += qtd
+            else:
+                carrinho.append({'id': id_prod, 'nome': produto_em_estoque['nome'], 'preco_venda': produto_em_estoque['preco_venda'], 'quantidade': qtd})
+            print("Produto adicionado com sucesso!")
+        else:
+            print(f"Erro: Quantidade inválida ou estoque insuficiente ({produto_em_estoque['quantidade_estoque']} disponíveis).")
+    except ValueError:
+        print("Erro: ID e quantidade devem ser números.")
     return carrinho
 
 def menu_cliente(produtos):
@@ -158,11 +195,81 @@ def menu_caixa(produtos, caixa, total_vendas):
     pausar_tela()
 
 def menu_supervisor(produtos, caixa):
-    """Gerencia as ações do Supervisor."""
-    exibir_cabecalho("PAINEL DO SUPERVISOR")
-    print("Funcionalidades do supervisor (CRUD de produtos, etc.) a serem implementadas aqui.")
-    pausar_tela()
-    return produtos, caixa # Retorna estado (pode ter sido alterado)
+    """Gerencia o menu de ações do Supervisor para CRUD de produtos e gestão do caixa."""
+    while True:
+        exibir_cabecalho("PAINEL DO SUPERVISOR")
+        print("[1] Listar produtos\n[2] Adicionar produto\n[3] Alterar produto\n[4] Remover produto\n[5] Gerenciar caixa\n[0] Voltar")
+        opcao = input("\nEscolha uma opção: ")
+
+        if opcao == '1':
+            exibir_cabecalho("LISTA COMPLETA DE PRODUTOS")
+            for p in produtos:
+                print(f"ID: {p['id']:<3} | {p['nome']:<25} | R$ {p['preco_venda']:.2f} | Estoque: {p['quantidade_estoque']}")
+            pausar_tela()
+        elif opcao == '2':
+            exibir_cabecalho("ADICIONAR NOVO PRODUTO")
+            try:
+                nome = input("Nome do novo produto: ")
+                preco = float(input("Preço de venda (ex: 4.50): "))
+                estoque = int(input("Quantidade em estoque inicial: "))
+                if preco <= 0 or estoque < 0:
+                    print("Erro: Preço e estoque devem ser valores positivos.")
+                else:
+                    novo_id = max(p['id'] for p in produtos) + 1 if produtos else 1
+                    produtos.append({'id': novo_id, 'nome': nome, 'preco_venda': preco, 'quantidade_estoque': estoque})
+                    logar_acao(f"PRODUTO ADICIONADO: '{nome}' (ID: {novo_id}).")
+                    print(f"\nProduto '{nome}' adicionado com sucesso!")
+            except ValueError:
+                print("\nErro: Preço e estoque devem ser números válidos.")
+            pausar_tela()
+        elif opcao == '3':
+            exibir_cabecalho("ALTERAR PRODUTO EXISTENTE")
+            try:
+                id_prod = int(input("Digite o ID do produto a alterar: "))
+                produto = next((p for p in produtos if p['id'] == id_prod), None)
+                if not produto:
+                    print("Erro: Nenhum produto encontrado com este ID.")
+                else:
+                    print(f"Alterando: '{produto['nome']}'")
+                    novo_preco_str = input(f"Novo preço (Enter para manter R${produto['preco_venda']:.2f}): ")
+                    if novo_preco_str:
+                        produto['preco_venda'] = float(novo_preco_str)
+                        logar_acao(f"PREÇO ALTERADO: ID {id_prod} para R${produto['preco_venda']:.2f}.")
+                    
+                    novo_estoque_str = input(f"Novo estoque (Enter para manter {produto['quantidade_estoque']}): ")
+                    if novo_estoque_str:
+                        produto['quantidade_estoque'] = int(novo_estoque_str)
+                        logar_acao(f"ESTOQUE ALTERADO: ID {id_prod} para {produto['quantidade_estoque']} unidades.")
+                    
+                    print("\nProduto atualizado!")
+            except ValueError:
+                print("\nErro: ID, preço e estoque devem ser números.")
+            pausar_tela()
+        elif opcao == '4':
+            exibir_cabecalho("REMOVER PRODUTO")
+            try:
+                id_prod = int(input("Digite o ID do produto a remover: "))
+                produto = next((p for p in produtos if p['id'] == id_prod), None)
+                if not produto:
+                    print("Erro: Nenhum produto encontrado com este ID.")
+                else:
+                    if input(f"Remover '{produto['nome']}'? (s/n): ").lower() == 's':
+                        produtos = [p for p in produtos if p['id'] != id_prod]
+                        logar_acao(f"PRODUTO REMOVIDO: '{produto['nome']}' (ID: {id_prod}).")
+                        print("Produto removido.")
+                    else:
+                        print("Operação cancelada.")
+            except ValueError:
+                print("\nErro: ID deve ser um número.")
+            pausar_tela()
+        elif opcao == '5':            
+            print("Funcionalidade de gerenciamento de caixa a ser implementada.")
+            pausar_tela()
+        elif opcao == '0':
+            return produtos, caixa
+        else:
+            print("Opção inválida!")
+            pausar_tela()
 
 def menu_administrativo(produtos, caixa, total_vendas):
     """Gerencia o menu de acesso à área administrativa."""
