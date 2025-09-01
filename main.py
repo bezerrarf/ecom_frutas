@@ -93,7 +93,8 @@ def menu_cliente(produtos):
             pausar_tela()
         elif opcao == '3':
             try:
-                id_prod = int(input("Digite o ID do produto a remover: "))                
+                id_prod = int(input("Digite o ID do produto a remover: "))
+                # A linha abaixo é a correção: reatribui a lista filtrada à variável carrinho.
                 carrinho = [item for item in carrinho if item['id'] != id_prod]
                 print(f"Produto com ID {id_prod} removido do carrinho.")
             except ValueError:
@@ -110,8 +111,27 @@ def menu_cliente(produtos):
                 print(f"\nTotal: R$ {total:.2f}")
             pausar_tela()
         elif opcao == '5':
-            print("Funcionalidades ainda ser implementado aqui.")
-            pausar_tela()
+            if not carrinho:
+                print("\nCarrinho vazio. Adicione itens para finalizar.")
+                pausar_tela()
+                continue
+            
+            total_compra = sum(item['quantidade'] * item['preco_venda'] for item in carrinho)
+            print(f"\nTotal da compra: R$ {total_compra:.2f}")
+            if input("Confirmar compra? (s/n): ").lower() == 's':
+                for item_carrinho in carrinho:
+                    for produto_estoque in produtos:
+                        if produto_estoque['id'] == item_carrinho['id']:
+                            produto_estoque['quantidade_estoque'] -= item_carrinho['quantidade']
+                            break
+                
+                if input("Deseja nota fiscal? (s/n): ").lower() == 's':
+                    gerar_nota_fiscal(carrinho, total_compra)
+                
+                logar_acao(f"COMPRA REALIZADA: Valor R$ {total_compra:.2f}.")
+                print("\nCompra finalizada com sucesso!")
+                pausar_tela()
+                return produtos, total_compra
         elif opcao == '0':
             return produtos, 0.0
         else:
@@ -123,9 +143,19 @@ def menu_cliente(produtos):
 def menu_caixa(produtos, caixa, total_vendas):
     """Exibe o painel de informações para o Caixa."""
     exibir_cabecalho("PAINEL DO CAIXA")
-    print("Funcionalidades do Caixa ainda ser implementado aqui.")
+    print("[Produtos com Estoque Zerado]")
+    produtos_zerados = [p for p in produtos if p['quantidade_estoque'] == 0]
+    if produtos_zerados:
+        for p in produtos_zerados: print(f"- {p['nome']}")
+    else:
+        print("Nenhum.")
+
+    print("\n[Situação do Caixa]")
+    total_caixa_inicial = sum(item['valor'] * item['quantidade'] for item in caixa)
+    print(f"Valor inicial em caixa: R$ {total_caixa_inicial:.2f}")
+    print(f"Vendas da sessão:       R$ {total_vendas:.2f}")
+    print(f"Valor total atual:      R$ {total_caixa_inicial + total_vendas:.2f}")
     pausar_tela()
-    return produtos, caixa # Retorna estado (pode ter sido alterado)
 
 def menu_supervisor(produtos, caixa):
     """Gerencia as ações do Supervisor."""
